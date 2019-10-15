@@ -1,0 +1,179 @@
+C51 COMPILER V9.59.0.0   FM                                                                10/14/2019 18:36:40 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE FM
+OBJECT MODULE PLACED IN .\Objects\FM.obj
+COMPILER INVOKED BY: G:\keil\C51\BIN\C51.EXE FM.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\FM.lst) T
+                    -ABS(2) OBJECT(.\Objects\FM.obj)
+
+line level    source
+
+   1          #include "FM.h"
+   2          
+   3          unsigned int max_pll=0x339b;           //108MHz时的pll,
+   4          unsigned int min_pll=0x299d;           //87.5MHz时的pll.
+   5          
+   6          unsigned char radio_write_data[5]={0x2a,0xb6,0x40,0x11,0x40};        //要写入TEA5767的数据
+   7          unsigned char radio_read_data[5];        //TEA5767读出的状态
+   8          
+   9          unsigned long frequency;
+  10          unsigned int pll;
+  11          
+  12          /*************************************************************************
+  13          *函数名：radio_write
+  14          *函数功能：写入5个字节的命令
+  15          *************************************************************************/
+  16          void radio_write(void)
+  17          {
+  18   1          unsigned char i;
+  19   1          iic_start();
+  20   1          iic_write8bit(0xc0);        //TEA5767写地址
+  21   1          if(!iic_testack())
+  22   1          {
+  23   2              for(i=0;i<5;i++)
+  24   2              {
+  25   3                  iic_write8bit(radio_write_data[i]);
+  26   3                  iic_ack();
+  27   3              }
+  28   2          }
+  29   1          iic_stop();    
+  30   1      }
+  31          
+  32          /*************************************************************************
+  33          *函数名：get_pll
+  34          *函数功能：由频率计算PLL
+  35          *************************************************************************/
+  36          void get_pll(void)
+  37          {
+  38   1          unsigned char hlsi;
+  39   1          unsigned int twpll=0;
+  40   1          hlsi=radio_write_data[2]&0x10;
+  41   1          if (hlsi)
+  42   1              pll=(unsigned int)((float)((frequency+225)*4)/(float)32.768);    //频率单位:k
+  43   1          else
+  44   1              pll=(unsigned int)((float)((frequency-225)*4)/(float)32.768);    //频率单位:k
+  45   1      }
+  46          
+  47          /*************************************************************************
+  48          *函数名：get_frequency
+  49          *函数功能：由PLL计算频率
+  50          *************************************************************************/
+  51          void get_frequency(void)
+  52          {
+  53   1          unsigned char hlsi;
+  54   1          unsigned int npll=0;
+C51 COMPILER V9.59.0.0   FM                                                                10/14/2019 18:36:40 PAGE 2   
+
+  55   1          npll=pll;
+  56   1          hlsi=radio_write_data[2]&0x10;
+  57   1          if (hlsi)
+  58   1              frequency=(unsigned long)((float)(npll)*(float)8.192-225);    //频率单位:KHz
+  59   1          else
+  60   1              frequency=(unsigned long)((float)(npll)*(float)8.192+225);    //频率单位:KHz
+  61   1      }
+  62          
+  63          /*************************************************************************
+  64          *函数名：radio_read
+  65          *函数功能：读TEA5767状态,并转换成频率
+  66          *************************************************************************/
+  67          void radio_read(void)
+  68          {
+  69   1          unsigned char i;
+  70   1          unsigned char temp_l,temp_h;
+  71   1          pll=0;
+  72   1          iic_start();
+  73   1          iic_write8bit(0xc1);        //TEA5767读地址
+  74   1          if(!iic_testack())
+  75   1          {
+  76   2              for(i=0;i<5;i++)
+  77   2              {
+  78   3                  radio_read_data[i]=iic_read8bit();
+  79   3                  iic_ack();
+  80   3              }
+  81   2          }
+  82   1          iic_stop();
+  83   1          temp_l=radio_read_data[1];
+  84   1          temp_h=radio_read_data[0];
+  85   1          temp_h&=0x3f;
+  86   1          pll=temp_h*256+temp_l;
+  87   1          get_frequency();
+  88   1      }
+  89          
+  90          /*************************************************************************
+  91          *函数名：search
+  92          *函数功能：手动设置频率,mode=1,+0.01MHz; mode=0:-0.01MHz ,不用考虑TEA5767用于搜台的相关位:SM,SUD
+  93          *************************************************************************/
+  94          void search(bit mode)
+  95          {
+  96   1          radio_read();        
+  97   1          if(mode)
+  98   1          {
+  99   2              frequency+=10;
+ 100   2              if(frequency>max_freq)
+ 101   2                  frequency=min_freq;
+ 102   2          }
+ 103   1          else
+ 104   1          {
+ 105   2              frequency-=10;
+ 106   2              if(frequency<min_freq)
+ 107   2                  frequency=max_freq;
+ 108   2          }          
+ 109   1          get_pll();
+ 110   1          radio_write_data[0]=pll/256;
+ 111   1          radio_write_data[1]=pll%256;
+ 112   1          radio_write_data[2]=0x41;
+ 113   1          radio_write_data[3]=0x11;
+ 114   1          radio_write_data[4]=0x40;
+ 115   1          radio_write();
+ 116   1      }
+C51 COMPILER V9.59.0.0   FM                                                                10/14/2019 18:36:40 PAGE 3   
+
+ 117          
+ 118          /*************************************************************************
+ 119          *函数名：auto_search
+ 120          *函数功能：自动搜台,mode=1,频率增加搜台; mode=0:频率减小搜台,不过这个好像不能循环搜台
+ 121          *************************************************************************/
+ 122          void auto_search(bit mode)
+ 123          {
+ 124   1          radio_read();        
+ 125   1          if(mode)
+ 126   1          {
+ 127   2              radio_write_data[2]=0xb1;
+ 128   2              frequency+=20;
+ 129   2              if(frequency>max_freq)
+ 130   2                  frequency=min_freq;
+ 131   2          }
+ 132   1          else
+ 133   1          {
+ 134   2          radio_write_data[2]=0x41; 
+ 135   2              frequency-=20;
+ 136   2              if(frequency<min_freq)
+ 137   2                  frequency=max_freq;
+ 138   2          }          
+ 139   1          get_pll();
+ 140   1      
+ 141   1          radio_write_data[0]=pll/256+0x40;      //加0x40是将SM置为1 为自动搜索模式
+ 142   1          radio_write_data[1]=pll%256;    
+ 143   1          radio_write_data[3]=0x11;              //SSL1和SSL0控制搜索停止条件             
+ 144   1          radio_write_data[4]=0x40;
+ 145   1          radio_write();
+ 146   1          radio_read();
+ 147   1          while(!(radio_read_data[0]&0x80))     //搜台成功标志
+ 148   1          {
+ 149   2              radio_read();
+ 150   2          }    
+ 151   1      } 
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    573    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     20       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       2
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

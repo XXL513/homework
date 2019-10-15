@@ -1,0 +1,8 @@
+".\Objects\main.obj",
+".\Objects\uart.obj",
+".\Objects\I2C.obj",
+".\Objects\key.obj",
+".\Objects\FM.obj",
+".\Objects\ds1302.obj" 
+TO ".\Objects\screen" 
+PRINT(".\Listings\screen.m51")

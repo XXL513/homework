@@ -1,0 +1,107 @@
+C51 COMPILER V9.59.0.0   MAIN                                                              10/15/2019 21:32:22 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: G:\keil\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main.ls
+                    -t) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include "string.h"
+   2          #include "uart.h"
+   3          #include "I2C.h"
+   4          #include "key.h"
+   5          #include "FM.h"
+   6          #include "ds1302.h"
+   7          
+   8          
+   9          void main()
+  10          {
+  11   1        unsigned char i;
+  12   1        set_baudrate(24,9600);
+  13   1        
+  14   1        while(1){
+  15   2          switch(Key_return()){
+  16   3            case 1:    //FM
+  17   3              radio_write();   //初始写入（可能会写入重复）
+  18   3              if(UP==0){       //向上搜索
+  19   4                DelayMs(1);
+  20   4                if(UP==0){
+  21   5                  while(UP==0);  //按下完成后修改
+  22   5                  auto_search(1);  
+  23   5                }
+  24   4              }
+  25   3              if(DOWN==0){     //向下搜索
+  26   4                DelayMs(1);
+  27   4                if(DOWN==0){
+  28   5                  while(DOWN==0);  //按下完成后修改
+  29   5                  auto_search(0);   
+  30   5                }
+  31   4              }
+  32   3              break;
+  33   3            case 2:    //SD
+  34   3              uart_state=1;  //串口使用状态：串口1
+  35   3              P_SW1=0x40;    //切换为串口RXD_2
+  36   3              if(START==0){  //播放键
+  37   4                DelayMs(1);
+  38   4                if(START==0){
+  39   5                  while(START==0);  //按下完成后修改
+  40   5                  for(i=0;i<4;i++) TxByte(start_SD[i]);
+  41   5                }
+  42   4              }
+  43   3              if(UP==0){       //向上搜索
+  44   4                DelayMs(1);
+  45   4                if(UP==0){
+  46   5                  while(UP==0);  //按下完成后修改
+  47   5                  for(i=0;i<4;i++) TxByte(SD_PREV[i]);
+  48   5                }
+  49   4              }
+  50   3              if(DOWN==0){     //向下搜索
+  51   4                DelayMs(1);
+  52   4                if(DOWN==0){
+  53   5                  while(DOWN==0);  //按下完成后修改
+  54   5                  for(i=0;i<4;i++) TxByte(SD_NEXT[i]);  
+C51 COMPILER V9.59.0.0   MAIN                                                              10/15/2019 21:32:22 PAGE 2   
+
+  55   5                }
+  56   4              } 
+  57   3              break;
+  58   3            case 3:    //分析
+  59   3              uart_state=2;  //串口使用状态：串口2 
+  60   3              break;
+  61   3            case 4:   //GPRS通讯
+  62   3              uart_state=4;
+  63   3              break;
+  64   3            default:   //时间
+  65   3              uart_state=2;  //串口使用状态：串口2
+  66   3              break;  
+  67   3          }
+  68   2          if(time_renew==0){  //显示时间更新
+  69   3            DelayMs(1);
+  70   3            if(time_renew==0){
+  71   4              while(time_renew==0);  //按下完成后修改
+  72   4            }
+  73   3          }
+  74   2          if(STAT==1){   //蓝牙接收
+  75   3            
+  76   3          } 
+  77   2          
+  78   2        }
+  79   1        
+  80   1        
+  81   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    274    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
